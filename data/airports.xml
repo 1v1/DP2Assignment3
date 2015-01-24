@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<airports>
+  <airport code="TRN">
+    <timezone>Europe/Rome</timezone>
+  </airport>
+  <airport code="LTN">
+    <timezone>Europe/London</timezone>
+  </airport>
+  <airport code="MPX">
+    <timezone>Europe/Rome</timezone>
+  </airport>
+</airports>

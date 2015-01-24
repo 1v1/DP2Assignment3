@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project basedir="." default="run-server" name="FDS-3">
+	<description>
+			Script for FDS Assignment 3
+	</description>
+
+	<!-- The random "FlightMonitorFactory" used for FDSInfo-->
+	<property name="FDSInfo.FlightMonitorFactory" value="it.polito.dp2.FDS.Random.FlightMonitorFactoryImpl" />
+
+	<!-- The default test case -->
+	<property name="testcase" value="0" />
+	<!-- The default test class -->
+	<property name="test.class" value="it.polito.dp2.FDS.lab3.tests.FDSTests" />
+
+    <!-- The location of the FDSBooking web service -->
+	<property name="acronym" value="FDS"/>
+	<property name="PORT" value="8181"/>
+	<property name="PORT2" value="8182"/>
+	<property name="URL" value="http://localhost:${PORT}/FDSBookingService"/>
+	<property name="WSDL" value="${URL}?wsdl"/>
+	<property name="WSDL2" value="http://localhost:${PORT2}/FDSUnbookingService?wsdl"/>
+	
+   	<property name="BASE" value="FDSBooking"/>
+	
+	<property name="lab3.location" location="." />
+
+	<property name="src.dir" location="${lab3.location}/src" />
+	<property name="build.dir" location="${lab3.location}/build" />
+	<property name="lib.dir" location="${lab3.location}/lib" />
+	<property name="gen.dir" location="${lab3.location}/gen-src" />
+	<property name="package" value="it.polito.dp2.FDS.lab3.gen"/>
+	<property name="custom.file" location="${lab3.location}/custom/bindings.xml" />
+	
+	<property name="debug" value="true" />
+	<property name="debuglevel" value="source,lines,vars" />
+	<property name="target" value="1.7" />
+	<property name="source" value="1.7" />
+	
+	<!-- The classpath to be used for compilation of the solution (not used this year) -->
+	<path id="sol.classpath">
+		<pathelement location="${lib.dir}/FDS.jar"/>
+	</path>
+
+	<!-- The classpath that includes only the FDS.jar -->
+	<path id="FDS.classpath">
+		<pathelement location="${lib.dir}/FDS.jar"/>
+	</path>
+	
+	<!-- The classpath to be used for running the tests -->
+	<path id="test.classpath">
+		<pathelement location="${build.dir}" />
+		<pathelement location="${lib.dir}/FDSBookingServer.jar"/>
+		<pathelement location="${lib.dir}/FDSRandom.jar"/>
+		<pathelement location="${lib.dir}/junit-4.5.jar"/>
+		<pathelement location="${lib.dir}/lab3.jar"/>
+		<pathelement location="${lib.dir}/${acronym}.jar" />
+	</path>
+	
+	<!-- Target setseed	-->
+	<target name="setseed" unless="seed">
+		<tstamp>
+			<format property="seed" pattern="HHmmss" />
+		</tstamp>
+	</target>
+	
+	<!-- Target init	-->
+	<target name="init">
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${gen.dir}" />
+	</target>
+	
+	<!-- Target buildFDSInfo	-->
+	<target name="buildFDSInfo" depends="init">
+		<echo>Building FDSInfo (if needed)...</echo>
+		<javac 
+			destdir="${build.dir}"
+			debug="${debug}"
+			debuglevel="${debuglevel}"
+			source="${source}"
+			target="${target}"
+			includeantruntime="false">
+				<src path="${src.dir}" />
+				<include name="it/polito/dp2/FDS/lab1/FDSInfo.java" />
+				<classpath>
+					<path refid="FDS.classpath" />
+				</classpath>
+		</javac>
+		<echo>Done.</echo>
+	</target>
+
+	<!-- Target FDSInfo	-->
+	<target name="FDSInfo" depends="buildFDSInfo, setseed">
+		<java classname="it.polito.dp2.FDS.lab1.FDSInfo" failonerror="true" fork="yes">
+			<sysproperty key="it.polito.dp2.FDS.Random.seed" value="${seed}"/>
+			<sysproperty key="it.polito.dp2.FDS.Random.testcase" value="${testcase}"/>
+			<sysproperty key="it.polito.dp2.FDS.FlightMonitorFactory" value="${FDSInfo.FlightMonitorFactory}"/>
+			<classpath>
+				<path refid="FDS.classpath" />
+				<pathelement location="${lib.dir}/FDSRandom.jar"/>
+				<pathelement path="${build.dir}"/>
+			</classpath>
+		</java>
+	</target>
+	
+	<!-- Target run-server	-->
+	<target name="run-server" depends="setseed">
+		<java fork="yes" jar="${lib.dir}/${BASE}Server.jar" dir=".">
+			<sysproperty key="it.polito.dp2.FDS.FlightMonitorFactory" value="${FDSInfo.FlightMonitorFactory}" />
+			<sysproperty key="it.polito.dp2.FDS.Random.seed" value="${seed}"/>
+			<sysproperty key="it.polito.dp2.FDS.Random.testcase" value="${testcase}"/>
+			<arg value="${PORT}" />
+			<arg value="${PORT2}" />
+		</java>
+	</target>
+	
+	<!-- Target chk-custom	-->
+	<target name="chk-custom">
+		<available property="customization.file.exists" file="${custom.file}"/>
+	</target>
+	
+	<!-- Target set-custom-option	-->
+	<target name="set-custom-option" depends="chk-custom,reset-custom-option" if="customization.file.exists">
+		<property name="custom.option" value="-b ${custom.file}" />
+	</target>
+	
+	<!-- Target reset-custom-option	-->
+	<target name="reset-custom-option" depends="chk-custom" unless="customization.file.exists">
+		<property name="custom.option" value="" />
+	</target>
+	
+	<!-- define the "compile.wsdl" target -->
+	<target name="compile-wsdl" depends="init,set-custom-option">
+	    <echo message = "${WSDL}"/> 
+	    <exec executable="wsimport">
+	        <arg line="${custom.option} -d '${build.dir}' -p '${package}' -s '${gen.dir}' -keep ${WSDL}"/>
+	    </exec>
+	</target>   
+	
+	<!-- Target buildClient -->
+	<target name="buildClient" depends="init, compile-wsdl">
+		<echo>Building the submitted solution (if needed)...</echo>
+		<javac destdir="${build.dir}" debug="${debug}" debuglevel="${debuglevel}" source="${source}" target="${target}" includeantruntime="false">
+			<src path="${src.dir}"/>
+			<src path="${gen.dir}"/>
+			<include name="it/polito/dp2/FDS/sol3/**" />
+			<include name="it/polito/dp2/FDS/lab3/*.java" />
+			<classpath>
+				<path refid="test.classpath" />
+			</classpath>
+		</javac>
+		<echo>Done.</echo>
+	</target>
+
+	<!-- Target runFuncTest	-->
+	<target name="runFuncTest" depends="setseed">
+		<antcall target="runFuncTest.real">
+			<param name="test.class" value="${test.class}" />
+			<param name="exit.code" value="126" />
+		</antcall>
+	</target>
+
+	<!-- Target runTest.real	-->
+	<target name="runFuncTest.real" depends="buildClient">
+		<junit printsummary="yes" dir="." fork="yes" haltonfailure="no" showoutput="no" filtertrace="true" timeout="120000">
+			<jvmarg value="-Djava.awt.headless=true" />
+			<!-- We force testcase 0 (no passengers are present) -->
+			<sysproperty key="it.polito.dp2.FDS.FlightMonitorFactory" value="it.polito.dp2.FDS.Random.FlightMonitorFactoryImpl" />
+			<sysproperty key="it.polito.dp2.FDS.sol3.URL" value="${URL}"/>
+			<sysproperty key="it.polito.dp2.FDS.sol3.port" value="${PORT}"/>
+			<sysproperty key="it.polito.dp2.FDS.sol3.port2" value="${PORT2}"/>
+			<formatter type="brief" usefile="false"/>
+			<test haltonfailure="no" failureproperty="test_failed" name="${test.class}"/>
+			<classpath>
+				<path refid="test.classpath" />
+			</classpath>
+		</junit>
+		<fail if="test_failed" status="${exit.code}" message="*** Some Tests FAILED ***"/>
+		<echo>*** All Tests PASSED  ***</echo>
+	</target>
+
+	<!-- Target clean	-->
+	<target name="clean">
+		<delete dir="${build.dir}" />
+		<delete dir="${gen.dir}" />
+	</target>
+	
+	<!--target for building the final zip containing the solution -->
+	<target name="make-final-zip">
+		<zip destfile="lab3.zip"
+			basedir="${lab3.location}"
+		    includes="custom/* src/it/polito/dp2/FDS/sol3/**/*.java"
+		/>
+	</target>
+
+</project>
